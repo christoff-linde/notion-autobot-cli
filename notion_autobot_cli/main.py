@@ -1,28 +1,13 @@
 import json
 from pprint import pprint
+from typing import Dict
 
 import typer
 from dotenv import get_key
+from jinja2 import Environment, FileSystemLoader
 from notion_client import Client
 
 app = typer.Typer()
-
-
-@app.callback()
-def callback():
-    """Notion Autobot CLI."""
-
-
-@app.command()
-def shoot():
-    """Shoot the portal gun."""
-    typer.echo("Shooting portal gun!")
-
-
-@app.command()
-def load():
-    """Load the portal gun."""
-    typer.echo("Loading portal gun!")
 
 
 @app.command()
@@ -41,9 +26,7 @@ def poke():
         raise typer.Exit(code=1)
 
     notion = Client(auth=client_secret)
-
     yeet = notion.databases.query(database_id=db_id)
-
     debug_dump(yeet)
 
 
@@ -56,50 +39,112 @@ def list_users(notion_client: Client):
 def parse():
     """Parse notion debug dump data."""
     typer.echo("Parsing notion debug dump data!")
+
     with open("debug.json", "r", encoding="utf-8") as file:
         data = json.load(file)
 
-    work_items = {}
+    projects = {}
 
     for item in data["results"]:
         if item["object"] == "page":
-            assign = item["properties"]["Assign"]["people"][0]["name"]
+            project = item["properties"]["Project"]["select"]["name"]
+            status = extract_task_status(item["properties"]["Status"]["status"]["name"])
+            if status is None:
+                continue
 
-            work_items[assign] = []
+            # if project not in projects:
+            #     projects[project] = {}
+            if status not in projects:
+                projects[status] = {}
 
-    for item in data["results"]:
-        if item["object"] == "page":
-            assign = item["properties"]["Assign"]["people"][0]["name"]
-
+            # Extract additional properties as needed
             name = item["properties"]["Name"]["title"][0]["plain_text"]
-            status = item["properties"]["Status"]["status"]["name"]
+            assignee = item["properties"]["Assign"]["people"][0]["name"]
+            # due_date = item["properties"]["Due"]["date"]
 
-            work_items[assign].append({"status": status, "name": name})
+            if project not in projects[status]:
+                projects[status][project] = []
 
-    pprint(work_items)
+            projects[status][project].append({"name": name, "assignee": assignee})
+
+    pprint(projects)
+
+    write_to_template(projects, "projects.html", "projects.md")
+
+    # for item in data["results"]:
+    #     if item["object"] == "page":
+    #         project = item["properties"]["Project"]["select"]["name"]
+    #         projects[project] = {}
+
+    # for item in data["results"]:
+    #     if item["object"] == "page":
+    #         project = item["properties"]["Project"]["select"]["name"]
+    #         status = extract_task_status(item["properties"]["Status"]["status"]["name"])
+    #         if status is None:
+    #             continue
+
+    #         projects[project][status] = []
+
+    # for item in data["results"]:
+    #     if item["object"] == "page":
+    #         project = item["properties"]["Project"]["select"]["name"]
+    #         status = extract_task_status(item["properties"]["Status"]["status"]["name"])
+    #         if status is None:
+    #             continue
+    #         # assignee = item["properties"]["Assign"]["people"][0]["name"]
+    #         # name = item["properties"]["Name"]["title"][0]["plain_text"]
+    #         # due_date = item["properties"]["Due"]["date"]
+
+    #         projects[project][status].append(
+    #             {"name": item["properties"]["Name"]["title"][0]["plain_text"]}
+    #         )
 
 
-@app.command()
-def template():
-    """Create a template."""
-    typer.echo("Creating a template!")
+def extract_task_status(status) -> str | None:
+    """Extract task status from notion."""
+    match status:
+        case "Todo" | "In Progress" | "In Review" | "QA (Staging)":
+            extracted_status = "In Progress"
+        case "Backlog" | "Blocked":
+            extracted_status = None
+        case "Done":
+            extracted_status = "Done"
+        case _:
+            extracted_status = None
+    return extracted_status
+    # for item in data["results"]:
+    #     if item["object"] == "page":
+    #         assign = item["properties"]["Assign"]["people"][0]["name"]
 
-    from jinja2 import Environment, FileSystemLoader
+    #         work_items[assign] = []
 
-    max_score = 100
-    test_name = "Python Challenge"
-    students = [
-        {"name": "Sandrine", "score": 100},
-        {"name": "Gergeley", "score": 87},
-        {"name": "Frieda", "score": 92},
-        {"name": "Fritz", "score": 40},
-        {"name": "Sirius", "score": 75},
-    ]
+    # for item in data["results"]:
+    #     if item["object"] == "page":
+    #         assign = item["properties"]["Assign"]["people"][0]["name"]
 
-    environment = Environment(loader=FileSystemLoader("templates/"), autoescape=True)
-    results_filename = "students_results.html"
-    results_template = environment.get_template("results.html")
-    context = {"students": students, "test_name": test_name, "max_score": max_score}
+    #         # name = item["properties"]["Name"]["title"][0]["plain_text"]
+    #         status = item["properties"]["Status"]["status"]["name"]
+    #         work_items[assign].append([status])
+    #         # work_items[assign].append({"status": status, "name": name})
+
+    # pprint(work_items)
+
+
+def write_to_template(data: Dict, template_path: str, output_path: str):
+    """Write to a template."""
+    typer.echo("Writing to a template!")
+
+    environment = Environment(
+        loader=FileSystemLoader("templates/"),
+        keep_trailing_newline=False,
+        trim_blocks=True,
+        lstrip_blocks=True,
+    )
+    results_filename = output_path
+    results_template = environment.get_template(template_path)
+
+    context = {"data": data}
+
     with open(results_filename, mode="w", encoding="utf-8") as results:
         results.write(results_template.render(context))
         typer.echo(f"... wrote {results_filename}")
