@@ -1,0 +1,13 @@
+**Launchpad**
+
+{% for status, projects in data.items() %}
+**{{ status }}**
+{% for project, tasks in projects.items() %}
+**{{ project|title }}:**
+{% for task in tasks %}
+- {{ task['name'] }} -> {{ task['assignee']}}
+{% endfor %}
+
+{% endfor %}
+
+{% endfor %}
