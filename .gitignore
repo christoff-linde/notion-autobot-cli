@@ -177,3 +177,9 @@ pyrightconfig.json
 
 # Debug data
 debug.json
+
+# Resulting templated files (apart from template directory)
+*.html
+!templates/*.html
+*.md
+!README.md
