@@ -1,0 +1,131 @@
+[tool.poetry]
+name = "notion-autobot-cli"
+version = "0.1.0"
+description = ""
+authors = ["christoff-linde <christoff.linde@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+typer = {extras = ["all"], version = "^0.9.0"}
+
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.1.13"
+pytest = "^7.4.4"
+mypy = "^1.8.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+# Enable for selected rules
+select = [
+  "ARG",  # flake8-unused-arguments
+  "A",    # flake8-builtins
+  "B",    # flake8-bugbear
+  "C",    # conventions
+  "C4",   # flake8-comprehensions
+  "C9",   # mccabe-complexity
+  "D",    # pydocstyle
+  "E",    # pycodestyle
+  "F",    # pyflakes
+  "G",    # flake8-logging-format
+  "I",    # imports
+  "LOG",  # flake8-logging
+  "N",    # pep8-naming
+  "PL",   # pylint
+  "PT",   # flake8-pytest-style
+  "PERF", # flake8-performance
+  "RSE",  # flake8-raise
+  "RET",  # flake8-return
+  "RUF",  # refurb
+  "S",    # flake8-bandit
+  "SIM",  # flake8-simplify
+  "TCH",  # flake8-type-checking
+  "T20",  # flake8-print
+  "W",    # pycodestyle
+]
+
+ignore = [
+  "B008",
+  "D101",
+  "D102",
+  "D103",
+  "D104",
+  "D105",
+  "D106",
+  "D107",
+  "D203",
+  "D211",
+  "D213",
+  "S101",
+  "W191",
+  "E111",
+  "E114",
+  "E117",
+  "D206",
+  "D300",
+]
+
+# Allow autofix for all enabled rules (when `--fix`) is provided.
+fixable = ["ALL"]
+unfixable = []
+
+# Include all Python files and Pyright configuration files.
+include = ["*.py", "*.pyi", "**/pyproject.toml", "*.ipynb"]
+
+# Exclude a variety of commonly ignored directories.
+exclude = [
+  ".bzr",
+  ".direnv",
+  ".eggs",
+  ".git",
+  ".git-rewrite",
+  ".hg",
+  ".mypy_cache",
+  ".nox",
+  ".pants.d",
+  ".pytype",
+  ".ruff_cache",
+  ".svn",
+  ".tox",
+  ".venv",
+  "__pypackages__",
+  "_build",
+  "buck-out",
+  "build",
+  "dist",
+  "node_modules",
+  "venv",
+]
+
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+# Assume Python 3.11.
+target-version = "py311"
+
+line-length = 88
+
+[tool.ruff.mccabe]
+# Flag errors (`C901`) whenever the complexity level exceeds 10.
+max-complexity = 10
+
+[tool.ruff.pylint]
+max-args = 6
+
+[tool.ruff.format]
+docstring-code-format = true
+skip-magic-trailing-comma = true
+
+[tool.ruff.lint.pycodestyle]
+max-line-length = 88
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+warn_unreachable = true
+warn_redundant_casts = true
