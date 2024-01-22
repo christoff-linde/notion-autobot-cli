@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from pprint import pprint
 from typing import Dict
 
@@ -6,6 +7,7 @@ import typer
 from dotenv import get_key
 from jinja2 import Environment, FileSystemLoader
 from notion_client import Client
+from typing_extensions import Annotated
 
 app = typer.Typer()
 
@@ -26,8 +28,8 @@ def poke():
         raise typer.Exit(code=1)
 
     notion = Client(auth=client_secret)
-    yeet = notion.databases.query(database_id=db_id)
-    debug_dump(yeet)
+    data = notion.databases.query(database_id=db_id)
+    debug_dump(data)
 
 
 def list_users(notion_client: Client):
@@ -40,36 +42,8 @@ def parse():
     """Parse notion debug dump data."""
     typer.echo("Parsing notion debug dump data!")
 
-    with open("debug.json", "r", encoding="utf-8") as file:
-        data = json.load(file)
-
-    projects = {}
-
-    for item in data["results"]:
-        if item["object"] == "page":
-            project = item["properties"]["Project"]["select"]["name"]
-            status = extract_task_status(item["properties"]["Status"]["status"]["name"])
-            if status is None:
-                continue
-
-            # if project not in projects:
-            #     projects[project] = {}
-            if status not in projects:
-                projects[status] = {}
-
-            # Extract additional properties as needed
-            name = item["properties"]["Name"]["title"][0]["plain_text"]
-            assignee = item["properties"]["Assign"]["people"][0]["name"]
-            # due_date = item["properties"]["Due"]["date"]
-
-            if project not in projects[status]:
-                projects[status][project] = []
-
-            projects[status][project].append({"name": name, "assignee": assignee})
-
-    pprint(projects)
-
-    write_to_template(projects, "projects.html", "projects.md")
+    today_data = parse_notion_data()
+    write_to_template(today_data, "projects.html", "TODAY.md")
 
     # for item in data["results"]:
     #     if item["object"] == "page":
@@ -100,12 +74,55 @@ def parse():
     #         )
 
 
+@app.command(
+    help="Requests latest data from Notion database and outputs to debug.json file. "
+    "The data is then parsed and written to a template.",
+    short_help="Generate today's task list markdown report file.",
+)
+def today(
+    debug: Annotated[bool, typer.Option()] = False,
+    all_tasks: Annotated[bool, typer.Option()] = False,
+) -> None:
+    """Generate today's task list markdown report file."""
+    if not debug:
+        client_secret = get_key(".env", "NOTION_INTERNAL_INTEGRATION_SECRET")
+        db_id = get_key(".env", "NOTION_DATABASE_ID")
+
+        if client_secret is None:
+            typer.echo("No client secret found!")
+            raise typer.Exit(code=1)
+        if db_id is None:
+            typer.echo("No database id found!")
+            raise typer.Exit(code=1)
+
+        notion = Client(auth=client_secret)
+
+        data = notion.databases.query(
+            database_id=db_id,
+            filter={
+                "property": "Type",
+                "select": {"equals": "Maintenance" if not all_tasks else ""},
+            },
+            sorts=[
+                {"property": "Project", "direction": "ascending"},
+                {"property": "Name", "direction": "ascending"},
+                {"property": "Assign", "direction": "ascending"},
+            ],
+        )
+        debug_dump(data)
+
+    today_data = parse_notion_data()
+    write_to_template(today_data, "projects.html", "TODAY.md")
+
+
 def extract_task_status(status) -> str | None:
     """Extract task status from notion."""
     match status:
         case "Todo" | "In Progress" | "In Review" | "QA (Staging)":
             extracted_status = "In Progress"
-        case "Backlog" | "Blocked":
+        case "Blocked":
+            extracted_status = "Blocked"
+        case "Backlog":
             extracted_status = None
         case "Done":
             extracted_status = "Done"
@@ -130,6 +147,43 @@ def extract_task_status(status) -> str | None:
     # pprint(work_items)
 
 
+def parse_notion_data() -> Dict:
+    """Parse notion debug data.
+
+    This goes through the debug.json file (or later, any notion-returned data)
+    and extracts all the project data (in the format required for the initial
+    use case).
+    """
+    with open("debug.json", "r", encoding="utf-8") as file:
+        data = json.load(file)
+
+    projects = {}
+
+    for item in data["results"]:
+        if item["object"] == "page":
+            project = item["properties"]["Project"]["select"]["name"]
+            status = extract_task_status(item["properties"]["Status"]["status"]["name"])
+            if status is None:
+                continue
+
+            # if project not in projects:
+            #     projects[project] = {}
+            if status not in projects:
+                projects[status] = {}
+
+            # Extract additional properties as needed
+            name = item["properties"]["Name"]["title"][0]["plain_text"]
+            assignee = item["properties"]["Assign"]["people"][0]["name"]
+            # due_date = item["properties"]["Due"]["date"]
+
+            if project not in projects[status]:
+                projects[status][project] = []
+
+            projects[status][project].append({"name": name, "assignee": assignee})
+
+    return projects
+
+
 def write_to_template(data: Dict, template_path: str, output_path: str):
     """Write to a template."""
     typer.echo("Writing to a template!")
@@ -143,7 +197,7 @@ def write_to_template(data: Dict, template_path: str, output_path: str):
     results_filename = output_path
     results_template = environment.get_template(template_path)
 
-    context = {"data": data}
+    context = {"data": data, "current_time": datetime.now().strftime("%A, %d-%m-%Y")}
 
     with open(results_filename, mode="w", encoding="utf-8") as results:
         results.write(results_template.render(context))
