@@ -2,7 +2,10 @@ import json
 from datetime import datetime
 from typing import Dict
 
+import requests
 import typer
+from discord import SyncWebhook
+from dotenv import get_key
 from jinja2 import Environment, FileSystemLoader
 
 
@@ -83,3 +86,20 @@ def write_to_template(data: Dict, template_path: str, output_path: str):
 def debug_dump(data):
     with open("debug.json", "w", encoding="utf-8") as file:
         json.dump(data, file, ensure_ascii=False, indent=4)
+
+
+def send_webhook() -> None:
+    """Send a webhook to discord.
+
+    This sends the generated markdown file to discord.
+    """
+    webhook_url = get_key(".env", "DISCORD_WEBHOOK_URL")
+    if not webhook_url:
+        raise typer.Exit(code=1)
+
+    session = requests.Session()
+    webhook = SyncWebhook.from_url(webhook_url, session=session)
+
+    with open("TODAY.md") as file:
+        data = file.read()
+    webhook.send(data)

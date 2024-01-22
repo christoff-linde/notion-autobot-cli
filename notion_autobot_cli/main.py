@@ -2,9 +2,11 @@ import typer
 from dotenv import get_key
 from notion_client import Client
 from typing_extensions import Annotated
-from utils import debug_dump, parse_notion_data, write_to_template
+from requests import Session
 
-app = typer.Typer()
+from .utils import debug_dump, parse_notion_data, send_webhook, write_to_template
+
+app = typer.Typer(rich_markup_mode="rich")
 
 
 @app.command()
@@ -42,13 +44,33 @@ def parse():
 
 
 @app.command(
-    help="Requests latest data from Notion database and outputs to debug.json file. "
+    help="Requests latest data from Notion database and outputs to `debug.json` file. "
     "The data is then parsed and written to a template.",
     short_help="Generate today's task list markdown report file.",
 )
 def today(
-    debug: Annotated[bool, typer.Option()] = False,
-    all_tasks: Annotated[bool, typer.Option()] = False,
+    debug: Annotated[
+        bool,
+        typer.Option(
+            help=(
+                "Enable debug mode. This is useful when testing locally. When "
+                "activated, the output is stored in a local .json file, which can be "
+                "used to test parsing features without making repeated calls to Notion."
+            ),
+            rich_help_panel="Customization and Utils",
+        ),
+    ] = False,
+    all_tasks: Annotated[
+        bool,
+        typer.Option(
+            help="Retrieve tasks of all types",
+            rich_help_panel="Customization and Utils",
+        ),
+    ] = False,
+    discord: Annotated[
+        bool,
+        typer.Option(help="Post to discord", rich_help_panel="Customization and Utils"),
+    ] = False,
 ) -> None:
     """Generate today's task list markdown report file."""
     if not debug:
@@ -80,3 +102,12 @@ def today(
 
     today_data = parse_notion_data()
     write_to_template(today_data, "projects.html", "TODAY.md")
+
+    if discord:
+        send_webhook()
+
+
+@app.command()
+def discord_test() -> None:
+    """Test discord webhook."""
+    send_webhook()
