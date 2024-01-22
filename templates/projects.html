@@ -1,13 +1,13 @@
-**Launchpad**
+# {{ "Launchpad" }}
+_[{{ current_time }}]_
 
 {% for status, projects in data.items() %}
-**{{ status }}**
+## {{ status }}: [`{{ projects|length }}`]
 {% for project, tasks in projects.items() %}
-**{{ project|title }}:**
+### {{ project }}
 {% for task in tasks %}
 - {{ task['name'] }} -> {{ task['assignee']}}
 {% endfor %}
-
 {% endfor %}
 
 {% endfor %}
